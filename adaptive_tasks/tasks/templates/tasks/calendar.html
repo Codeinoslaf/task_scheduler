@@ -44,9 +44,10 @@
             <button type="button" class="side-panel__close" onclick="closePanel()">✕</button>
         </div>
 
-        <form class="side-panel__form" id="task-form" method="post" action="{% url 'calendar' %}">
+        <form class="side-panel__form" id="task-form" method="post" action="{% url 'calendar' %}" onsubmit="return handleFormSubmit(event)">
             {% csrf_token %}
             <input type="hidden" name="task_id" id="task-id">
+            <input type="hidden" name="planned_deadline" id="hidden-deadline">
 
             <div class="form-group">
                 <label for="task-title">Название задачи</label>
@@ -59,8 +60,8 @@
             </div>
 
             <div class="form-group">
-                <label for="task-deadline">Дедлайн</label>
-                <input type="datetime-local" id="task-deadline" name="planned_deadline" required>
+                <label for="task-deadline">Время</label>
+                <input type="time" id="task-deadline" required>
             </div>
 
             <div class="form-actions">
@@ -88,7 +89,7 @@
     let currentDate = new Date();
     let selectedDate = null;
 
-    // Данные задач (заглушка - замените на реальные данные из Django)
+    // Данные задач
     const tasksData = {{ tasks_json|safe }};
 
     const monthNames = [
@@ -107,7 +108,7 @@
         const lastDay = new Date(year, month + 1, 0);
         const prevLastDay = new Date(year, month, 0);
 
-        const firstDayWeek = firstDay.getDay() || 7; // 1 = Пн, 7 = Вс
+        const firstDayWeek = firstDay.getDay() || 7;
         const daysInMonth = lastDay.getDate();
         const daysInPrevMonth = prevLastDay.getDate();
 
@@ -177,12 +178,6 @@
         panel.classList.add('side-panel--active');
         shell.classList.add('calendar-shell--shifted');
 
-        // Устанавливаем дату в форме
-        document.getElementById('task-deadline').value = dateStr + 'T12:00';
-        document.getElementById('panel-title').textContent = 'Новая задача';
-        document.getElementById('task-form').reset();
-        document.getElementById('task-id').value = '';
-
         // Показываем задачи на выбранную дату
         const tasks = tasksData.filter(task => {
             const taskDate = new Date(task.planned_deadline).toISOString().split('T')[0];
@@ -193,7 +188,11 @@
         const tasksList = document.getElementById('panel-tasks-list');
 
         if (tasks.length > 0) {
+            // Если есть задачи - показываем их список
             tasksSection.style.display = 'block';
+            document.getElementById('task-form').style.display = 'none';
+            document.getElementById('panel-title').textContent = `Задачи на ${formatDate(dateStr)}`;
+
             tasksList.innerHTML = tasks.map(task => `
                 <div class="panel-task-item">
                     <div class="panel-task-title">${task.title}</div>
@@ -202,17 +201,79 @@
                     </div>
                     ${task.description ? `<p style="font-size: 13px; color: #94a3b8; margin: 8px 0 0;">${task.description}</p>` : ''}
                     <div class="panel-task-actions">
+                        <button class="task-action-btn task-action-btn--complete" onclick="editTask(${task.id}, event)" style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; border-color: rgba(59, 130, 246, 0.3);">✏️ Изменить</button>
                         ${task.status !== 'completed' ?
                 `<button class="task-action-btn task-action-btn--complete" onclick="completeTask(${task.id})">✓ Завершить</button>` :
-                `<span style="color: #86efac; font-size: 13px;">✓ Выполнено</span>`
+                `<span style="color: #86efac; font-size: 13px; padding: 8px;">✓ Выполнено</span>`
             }
                         <button class="task-action-btn task-action-btn--delete" onclick="deleteTask(${task.id})">🗑 Удалить</button>
                     </div>
                 </div>
             `).join('');
+
+            // Добавляем кнопку для создания новой задачи
+            tasksList.innerHTML += `
+                <button class="btn" style="width: 100%; margin-top: 12px;" onclick="showNewTaskForm('${dateStr}')">
+                    <span>➕ Добавить новую задачу</span>
+                </button>
+            `;
         } else {
-            tasksSection.style.display = 'none';
+            // Если нет задач - показываем форму создания
+            showNewTaskForm(dateStr);
         }
+    }
+
+    function showNewTaskForm(dateStr) {
+        document.getElementById('task-form').style.display = 'flex';
+        document.getElementById('panel-tasks-section').style.display = 'none';
+
+        // Устанавливаем только время, дата уже выбрана
+        const currentTime = new Date().toTimeString().slice(0, 5); // HH:MM
+        document.getElementById('task-deadline').value = currentTime;
+        document.getElementById('panel-title').textContent = `Новая задача на ${formatDate(dateStr)}`;
+        document.getElementById('task-form').reset();
+        document.getElementById('task-id').value = '';
+        document.getElementById('task-deadline').value = currentTime;
+        document.getElementById('task-deadline').dataset.date = dateStr;
+    }
+
+    function editTask(taskId, event) {
+        event.stopPropagation();
+        const task = tasksData.find(t => t.id === taskId);
+        if (!task) return;
+
+        document.getElementById('task-form').style.display = 'flex';
+        document.getElementById('panel-tasks-section').style.display = 'none';
+
+        const taskDate = new Date(task.planned_deadline);
+        const dateStr = taskDate.toISOString().split('T')[0];
+        const timeStr = taskDate.toTimeString().slice(0, 5);
+
+        document.getElementById('panel-title').textContent = 'Редактирование задачи';
+        document.getElementById('task-id').value = task.id;
+        document.getElementById('task-title').value = task.title;
+        document.getElementById('task-description').value = task.description || '';
+        document.getElementById('task-deadline').value = timeStr;
+        document.getElementById('task-deadline').dataset.date = dateStr;
+    }
+
+    function handleFormSubmit(event) {
+        const deadlineInput = document.getElementById('task-deadline');
+        const dateStr = deadlineInput.dataset.date || selectedDate;
+        const timeStr = deadlineInput.value;
+
+        // Комбинируем дату и время
+        const fullDatetime = `${dateStr}T${timeStr}`;
+        document.getElementById('hidden-deadline').value = fullDatetime;
+
+        return true;
+    }
+
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const month = monthNames[date.getMonth()];
+        return `${day} ${month}`;
     }
 
     function closePanel() {
@@ -244,7 +305,6 @@
 
     function deleteTask(taskId) {
         if (confirm('Вы уверены, что хотите удалить эту задачу?')) {
-            // Отправка запроса на удаление
             fetch(`/task/${taskId}/delete/`, {
                 method: 'POST',
                 headers: {

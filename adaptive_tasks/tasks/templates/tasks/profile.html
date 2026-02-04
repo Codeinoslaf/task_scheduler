@@ -20,38 +20,55 @@
     </header>
 
     <div class="profile-grid">
-        <div class="card profile-card">
-            <div class="profile-card-icon">📊</div>
-            <div class="profile-card-label">Всего задач</div>
-            <div class="profile-card-value">{{ total_tasks }}</div>
-            <div class="profile-card-description">
-                Создано за все время
+        <a href="{% url 'task_list' %}?filter=all" style="text-decoration: none;">
+            <div class="card profile-card">
+                <div class="profile-card-icon">📊</div>
+                <div class="profile-card-label">Всего задач</div>
+                <div class="profile-card-value">{{ total_tasks }}</div>
+                <div class="profile-card-description">
+                    Создано за все время
+                </div>
             </div>
-        </div>
+        </a>
 
-        <div class="card profile-card">
-            <div class="profile-card-icon">✅</div>
-            <div class="profile-card-label">Выполнено</div>
-            <div class="profile-card-value profile-card-value--success">{{ completed_tasks }}</div>
-            <div class="profile-card-description">
-                {% if total_tasks > 0 %}
-                {{ completion_rate }}% от общего числа
-                {% else %}
-                Начните создавать задачи
-                {% endif %}
+        <a href="{% url 'task_list' %}?filter=completed" style="text-decoration: none;">
+            <div class="card profile-card">
+                <div class="profile-card-icon">✅</div>
+                <div class="profile-card-label">Выполнено</div>
+                <div class="profile-card-value profile-card-value--success">{{ completed_tasks }}</div>
+                <div class="profile-card-description">
+                    {% if total_tasks > 0 %}
+                    {{ completion_rate }}% от общего числа
+                    {% else %}
+                    Начните создавать задачи
+                    {% endif %}
+                </div>
             </div>
-        </div>
+        </a>
 
-        <div class="card profile-card">
-            <div class="profile-card-icon">⏰</div>
-            <div class="profile-card-label">Просрочено</div>
-            <div class="profile-card-value profile-card-value--danger">
-                {{ overdue_tasks }}
+        <a href="{% url 'task_list' %}?filter=overdue" style="text-decoration: none;">
+            <div class="card profile-card">
+                <div class="profile-card-icon">⏰</div>
+                <div class="profile-card-label">Просрочено</div>
+                <div class="profile-card-value profile-card-value--danger">
+                    {{ overdue_tasks }}
+                </div>
+                <div class="profile-card-description">
+                    Требуют внимания
+                </div>
             </div>
-            <div class="profile-card-description">
-                Требуют внимания
+        </a>
+
+        <a href="{% url 'task_list' %}?filter=active" style="text-decoration: none;">
+            <div class="card profile-card">
+                <div class="profile-card-icon">🎯</div>
+                <div class="profile-card-label">Активных задач</div>
+                <div class="profile-card-value profile-card-value--info">{{ active_tasks }}</div>
+                <div class="profile-card-description">
+                    В работе
+                </div>
             </div>
-        </div>
+        </a>
 
         <div class="card profile-card">
             <div class="profile-card-icon">📈</div>
@@ -65,7 +82,7 @@
         </div>
 
         <div class="card profile-card">
-            <div class="profile-card-icon">🎯</div>
+            <div class="profile-card-icon">💯</div>
             <div class="profile-card-label">Процент выполнения</div>
             <div class="profile-card-value profile-card-value--success">{{ completion_rate }}%</div>
             <div class="profile-card-description">
@@ -79,7 +96,7 @@
         <div class="details-grid">
             <div class="detail-item">
                 <div class="detail-label">Активных задач</div>
-                <div class="detail-value">{{ total_tasks|add:"-"|add:completed_tasks|add:"-"|add:overdue_tasks }}</div>
+                <div class="detail-value">{{ active_tasks }}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Средняя продуктивность</div>

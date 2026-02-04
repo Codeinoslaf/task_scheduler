@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.utils.timezone import now
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 import json
@@ -65,6 +65,9 @@ def profile_view(request):
     total_tasks = Task.objects.filter(user=user).count()
     completed_tasks = Task.objects.filter(user=user, status='completed').count()
     overdue_tasks = Task.objects.filter(user=user, status='overdue').count()
+    active_tasks = Task.objects.filter(user=user).exclude(
+        Q(status='completed') | Q(status='overdue')
+    ).count()
 
     avg_delay = TaskExecutionStats.objects.filter(user=user).aggregate(
         Avg('delay_days')
@@ -76,28 +79,83 @@ def profile_view(request):
         'total_tasks': total_tasks,
         'completed_tasks': completed_tasks,
         'overdue_tasks': overdue_tasks,
+        'active_tasks': active_tasks,
         'avg_delay': round(avg_delay, 2),
         'completion_rate': round(completion_rate, 1),
     })
 
 
 @login_required
+def task_list_view(request):
+    user = request.user
+    filter_type = request.GET.get('filter', 'all')
+
+    # Базовый queryset
+    tasks_query = Task.objects.filter(user=user)
+
+    # Применяем фильтр
+    if filter_type == 'completed':
+        tasks = tasks_query.filter(status='completed').order_by('-actual_deadline')
+        page_title = 'Выполненные задачи'
+        page_subtitle = 'Все завершенные задачи'
+    elif filter_type == 'overdue':
+        tasks = tasks_query.filter(status='overdue').order_by('planned_deadline')
+        page_title = 'Просроченные задачи'
+        page_subtitle = 'Задачи, требующие внимания'
+    elif filter_type == 'active':
+        tasks = tasks_query.exclude(
+            Q(status='completed') | Q(status='overdue')
+        ).order_by('planned_deadline')
+        page_title = 'Активные задачи'
+        page_subtitle = 'Задачи в работе'
+    else:
+        tasks = tasks_query.order_by('planned_deadline')
+        page_title = 'Все задачи'
+        page_subtitle = 'Полный список ваших задач'
+
+    # Подсчет для фильтров
+    total_count = tasks_query.count()
+    completed_count = tasks_query.filter(status='completed').count()
+    overdue_count = tasks_query.filter(status='overdue').count()
+    active_count = tasks_query.exclude(
+        Q(status='completed') | Q(status='overdue')
+    ).count()
+
+    return render(request, 'tasks/task_list.html', {
+        'tasks': tasks,
+        'page_title': page_title,
+        'page_subtitle': page_subtitle,
+        'current_filter': filter_type,
+        'total_count': total_count,
+        'completed_count': completed_count,
+        'overdue_count': overdue_count,
+        'active_count': active_count,
+    })
+
+
+@login_required
 def complete_task(request, task_id):
     task = get_object_or_404(Task, id=task_id, user=request.user)
-    task.actual_deadline = now()
-    task.status = 'completed'
-    task.save()
 
-    delay_days = (task.actual_deadline.date() - task.planned_deadline.date()).days
+    if request.method == 'POST':
+        task.actual_deadline = now()
+        task.status = 'completed'
+        task.save()
 
-    TaskExecutionStats.objects.create(
-        user=request.user,
-        task=task,
-        planned_deadline=task.planned_deadline,
-        actual_deadline=task.actual_deadline,
-        delay_days=delay_days
-    )
+        delay_days = (task.actual_deadline.date() - task.planned_deadline.date()).days
 
+        TaskExecutionStats.objects.create(
+            user=request.user,
+            task=task,
+            planned_deadline=task.planned_deadline,
+            actual_deadline=task.actual_deadline,
+            delay_days=delay_days
+        )
+
+    # Определяем откуда пришел запрос
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'task-list' in referer:
+        return redirect('task_list')
     return redirect('calendar')
 
 
@@ -106,7 +164,16 @@ def complete_task(request, task_id):
 def delete_task(request, task_id):
     task = get_object_or_404(Task, id=task_id, user=request.user)
     task.delete()
-    return JsonResponse({'success': True})
+
+    # Проверяем, откуда пришел запрос
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True})
+
+    # Если это обычная форма, редиректим
+    referer = request.META.get('HTTP_REFERER', '')
+    if 'task-list' in referer:
+        return redirect('task_list')
+    return redirect('calendar')
 
 
 @login_required
