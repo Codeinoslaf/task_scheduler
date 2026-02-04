@@ -1,0 +1,28 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Task Planner{% endblock %}</title>
+
+    <link rel="stylesheet" href="{% static 'tasks/css/base.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<nav class="top-nav">
+    <div class="top-nav__logo">✨ Task Planner</div>
+    <div class="top-nav__links">
+        <a href="{% url 'calendar' %}">📅 Календарь</a>
+        <a href="{% url 'profile' %}">👤 Профиль</a>
+    </div>
+</nav>
+
+<main class="page-wrapper">
+    {% block content %}{% endblock %}
+</main>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

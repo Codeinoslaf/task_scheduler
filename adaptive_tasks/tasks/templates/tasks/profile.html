@@ -1,0 +1,154 @@
+{% extends 'tasks/base.html' %}
+{% load static %}
+
+{% block title %}Профиль{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'tasks/css/profile.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="profile">
+    <header class="profile-header">
+        <div class="profile-title-wrap">
+            <h1>Профиль пользователя</h1>
+            <p class="profile-subtitle">Ваша статистика по выполнению задач</p>
+        </div>
+        <a href="{% url 'calendar' %}" class="btn">
+            <span>📅 Перейти к календарю</span>
+        </a>
+    </header>
+
+    <div class="profile-grid">
+        <div class="card profile-card">
+            <div class="profile-card-icon">📊</div>
+            <div class="profile-card-label">Всего задач</div>
+            <div class="profile-card-value">{{ total_tasks }}</div>
+            <div class="profile-card-description">
+                Создано за все время
+            </div>
+        </div>
+
+        <div class="card profile-card">
+            <div class="profile-card-icon">✅</div>
+            <div class="profile-card-label">Выполнено</div>
+            <div class="profile-card-value profile-card-value--success">{{ completed_tasks }}</div>
+            <div class="profile-card-description">
+                {% if total_tasks > 0 %}
+                {{ completion_rate }}% от общего числа
+                {% else %}
+                Начните создавать задачи
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card profile-card">
+            <div class="profile-card-icon">⏰</div>
+            <div class="profile-card-label">Просрочено</div>
+            <div class="profile-card-value profile-card-value--danger">
+                {{ overdue_tasks }}
+            </div>
+            <div class="profile-card-description">
+                Требуют внимания
+            </div>
+        </div>
+
+        <div class="card profile-card">
+            <div class="profile-card-icon">📈</div>
+            <div class="profile-card-label">Среднее отклонение</div>
+            <div class="profile-card-value profile-card-value--info">
+                {% if avg_delay >= 0 %}+{% endif %}{{ avg_delay }}
+            </div>
+            <div class="profile-card-description">
+                дней от дедлайна
+            </div>
+        </div>
+
+        <div class="card profile-card">
+            <div class="profile-card-icon">🎯</div>
+            <div class="profile-card-label">Процент выполнения</div>
+            <div class="profile-card-value profile-card-value--success">{{ completion_rate }}%</div>
+            <div class="profile-card-description">
+                Эффективность работы
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-details">
+        <h2>📋 Дополнительная статистика</h2>
+        <div class="details-grid">
+            <div class="detail-item">
+                <div class="detail-label">Активных задач</div>
+                <div class="detail-value">{{ total_tasks|add:"-"|add:completed_tasks|add:"-"|add:overdue_tasks }}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Средняя продуктивность</div>
+                <div class="detail-value">
+                    {% if completion_rate >= 80 %}
+                    Отлично 🌟
+                    {% elif completion_rate >= 60 %}
+                    Хорошо 👍
+                    {% elif completion_rate >= 40 %}
+                    Средне 😐
+                    {% else %}
+                    Нужно постараться 💪
+                    {% endif %}
+                </div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Тенденция</div>
+                <div class="detail-value">
+                    {% if avg_delay < 0 %}
+                    Опережаете 🚀
+                    {% elif avg_delay == 0 %}
+                    Точно в срок ⏱️
+                    {% else %}
+                    Есть задержки ⚠️
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="profile-details">
+        <h2>💡 Рекомендации</h2>
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
+            {% if completion_rate < 50 %}
+            <div style="padding: 16px; border-radius: 14px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                <strong style="color: #fca5a5;">⚠️ Низкий процент выполнения</strong>
+                <p style="margin: 8px 0 0; font-size: 14px; color: #cbd5e1;">
+                    Попробуйте разбивать крупные задачи на более мелкие и устанавливайте реалистичные сроки.
+                </p>
+            </div>
+            {% endif %}
+
+            {% if overdue_tasks > 5 %}
+            <div style="padding: 16px; border-radius: 14px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3);">
+                <strong style="color: #fbbf24;">⏰ Много просроченных задач</strong>
+                <p style="margin: 8px 0 0; font-size: 14px; color: #cbd5e1;">
+                    Уделите время завершению старых задач. Возможно, стоит их пересмотреть или удалить неактуальные.
+                </p>
+            </div>
+            {% endif %}
+
+            {% if avg_delay > 2 %}
+            <div style="padding: 16px; border-radius: 14px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3);">
+                <strong style="color: #60a5fa;">📊 Задержки в выполнении</strong>
+                <p style="margin: 8px 0 0; font-size: 14px; color: #cbd5e1;">
+                    В среднем вы завершаете задачи с опозданием. Попробуйте закладывать больше времени на выполнение.
+                </p>
+            </div>
+            {% endif %}
+
+            {% if completion_rate >= 80 and avg_delay <= 0 %}
+            <div style="padding: 16px; border-radius: 14px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3);">
+                <strong style="color: #86efac;">🎉 Отличная работа!</strong>
+                <p style="margin: 8px 0 0; font-size: 14px; color: #cbd5e1;">
+                    Вы эффективно справляетесь с задачами и соблюдаете дедлайны. Продолжайте в том же духе!
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}
